@@ -2,9 +2,8 @@ namespace FileCleanupServices
 {
     public class FileCleanupService : BackgroundService
     {
-        private string directoryPath = @"C:\\PDFGenetator";
+        private string directoryPath = "/var/www/mafirolapi/Assets/PDFGeneratedFiles";
         private FileSystemWatcher _fileWatcher;
-        private Timer timer;
 
         private readonly ILogger<FileCleanupService> _logger;
 
@@ -14,23 +13,43 @@ namespace FileCleanupServices
         }
 
 
-        protected override  async Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            // Configura o FileSystemWatcher para monitorar o diretório
             _fileWatcher = new FileSystemWatcher(directoryPath);
-            _fileWatcher.Created += FileWatcher_Created;
-            _fileWatcher.EnableRaisingEvents= true;
+            //_fileWatcher.Created += FileWatcher_Created;
+            _fileWatcher.EnableRaisingEvents = true;
 
-            while (!stoppingToken.IsCancellationRequested) 
+            while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
-                CleanupFiles();
+                DateTime now = DateTime.Now;
+                DateTime nextCheckTime = new DateTime(now.Year, now.Month, now.Day, 10, 50, 0);
+
+
+                if (now >= nextCheckTime)
+                {
+                    CleanupFiles();
+
+                    nextCheckTime = nextCheckTime.AddDays(1);
+                    TimeSpan timeUntilNextCheck = nextCheckTime - DateTime.Now;
+                    _logger.LogInformation("Próxima verificação em: {timeUntilNextCheck}", timeUntilNextCheck);
+                    await Task.Delay(timeUntilNextCheck, stoppingToken);                 
+                }
+                else
+                {
+                    TimeSpan timeUntilNextCheck = nextCheckTime - now;
+
+                    _logger.LogInformation("Próxima verificação em: {timeUntilNextCheck}", timeUntilNextCheck);
+                    await Task.Delay(timeUntilNextCheck, stoppingToken);
+
+                }
+
+
             }
         }
 
-        private void FileWatcher_Created(object sender, FileSystemEventArgs e) 
+        private void FileWatcher_Created(object sender, FileSystemEventArgs e)
         {
-            CleanupFiles();           
+            CleanupFiles();
         }
 
         private void CleanupFiles()
